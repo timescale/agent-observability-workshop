@@ -93,9 +93,14 @@ shared CPU, so your numbers will move around — the pattern is what matters.
 | Cost by tenant | 1,999 ms | 1,897 ms | **605 ms** |
 | Tool error rates | 1,604 ms | **230 ms** | — |
 | Distinct conversations/day | 5,581 ms | 5,724 ms | **1.1 ms** |
+| Last 24 hours, time-filtered | full scan | **4.6 ms** | — |
 | Table size | 320 MB | **102 MB** | — |
 
 Data generation takes about 85 seconds.
+
+That 4.6 ms row is the hypertable rather than the columnstore — 29 of 30 chunks are
+excluded before a single row is read. It only works because the query filters on the
+partition column, which is the whole point of choosing one.
 
 Two rows in that table are the interesting ones. **The columnstore made distinct-count
 slightly worse**, because `count(DISTINCT)` isn't waiting on disk — it's hashing 20,000
@@ -130,6 +135,19 @@ Every panel but one reads a **continuous aggregate**, not the raw table. That's 
 stays responsive on the smallest service Tiger Cloud offers. The exception is the retry
 storm hunt, which scans raw spans on purpose — it's the one question worth paying a full
 scan for.
+
+### Step 6, in numbers
+
+Dropping raw spans older than 7 days:
+
+```
+raw spans     1,989,321 → 516,693       102 MB → 26 MB
+daily rollup  unchanged, still back to day 1
+```
+
+The 30-day cost, p99 and conversation-count queries all still answer afterwards, from
+data whose raw rows no longer exist. That is the trade, stated plainly: you keep the
+shape of history and give up inspecting an individual span from before the window.
 
 ## Need help?
 
