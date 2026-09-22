@@ -1,5 +1,5 @@
 {
-  "name": "workshop-template",
+  "name": "agent-observability-workshop",
 
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
 

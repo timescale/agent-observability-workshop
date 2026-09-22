@@ -1,6 +1,6 @@
 # <Workshop Name>
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/timescale/workshop-template)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/timescale/agent-observability-workshop)
 
 <One paragraph. What they'll *build*, not what topics get covered. Name the thing they
 walk away with.>
