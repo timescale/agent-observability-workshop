@@ -1,3 +1,6 @@
 # Anything an attendee drops connection details into.
 .env
 *.pgpass
+
+# Grafana connection details, written by scripts/grafana-env.sh
+.env

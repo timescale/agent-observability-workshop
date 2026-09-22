@@ -1,21 +1,51 @@
 # Building this workshop
 
-Guidance for whoever is building or maintaining this workshop, including coding agents.
-Not attendee-facing — that's `README.md`.
+Notes for whoever maintains this, including coding agents. Attendee-facing content is
+`README.md`.
 
-If your workshop hands an agent to the *attendee*, write a separate `AGENTS.md` for that;
-`fork-break-fix-delete-workshop` is a worked example. This file is about building.
+## What this is
 
-## First, delete the scaffolding
+A joint AlphaSignal x Tiger Data webinar, 30 September 2026. Audience is ~300K AI/ML
+engineers: strong on agents, tokens, evals and tail latency; weak-to-indifferent on
+databases. Don't explain what an agent is. Do explain why a continuous aggregate exists.
 
-- Fill in `README.md`. Every `<…>` is a placeholder.
-- Replace `sql/1-example.sql` with your real files.
-- Update the banner text at the bottom of `.devcontainer/post-create.sh`.
-- Delete this section.
+## Framing constraints -- these are not stylistic
 
-The Codespaces badge and the devcontainer's `name` are rewritten automatically by
-`.github/workflows/template-cleanup.yml` on your first push, which then deletes itself.
-If that workflow didn't run, fix the badge by hand — it'll otherwise open the template.
+**Never call this an "observability backend".** Tiger built an OpenTelemetry/Prometheus
+backend called Promscale and discontinued it in 2023. The announcement is still live on
+the site, and anyone who googles "Timescale observability" will find it.
+
+**Never position against OTel or trace vendors.** `timescale/tiger-agents-for-work`,
+Tiger's own agent framework, ships Logfire instrumentation. The honest and defensible
+framing is the durable aggregate tier *underneath* a trace tool.
+
+The line that holds both: *you'll probably buy a trace tool -- build this once anyway, so
+you know what it's doing and what it can't do for you.*
+
+## Things that will bite you
+
+- `convert_to_columnstore` and `add_columnstore_policy` are **procedures**. `CALL`, not
+  `SELECT`, or you get SQLSTATE 42809.
+- `ALTER TABLE ... SET (timescaledb.compress ...)` was deprecated in 2.18. Use
+  `timescaledb.enable_columnstore` and the hypercore functions.
+- Continuous aggregate refreshes can't run in the transaction `tiger db query -f` wraps a
+  file in (SQLSTATE 25001). `sql/5-rollups.sql` says so at the top.
+- `::int` **rounds** in Postgres, so `(random() * 9.999)::int` can return 10 and index
+  past the end of a 10-element array, silently producing NULL. Use `floor()`.
+- `CREATE TABLE AS SELECT` over 2M rows kills the connection on a free service.
+
+## Keep the numbers honest
+
+Every figure in the README was measured on a free Tiger Cloud service with 2,003,180
+spans, and several of them contradict what you'd assume:
+
+- the columnstore made `count(DISTINCT)` *slightly worse*
+- cost-by-tenant barely moved under the columnstore
+- hyperloglog in the wrong-shaped rollup was 5,590ms; in a rollup grouped only by day it
+  was 1.1ms and 440 kB instead of 65 MB
+
+If you change the generator, re-measure and update the table. A wrong number is worse than
+no number: it turns "this is slow" into "this is broken" and people kill the command.
 
 ## The README is the product
 

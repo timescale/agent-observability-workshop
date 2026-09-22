@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: TigerCloud
+    type: postgres
+    uid: tigercloud
+    url: ${TIGER_HOST}:${TIGER_PORT}
+    user: ${TIGER_USER}
+    database: ${TIGER_DATABASE}
+    secureJsonData:
+      password: ${TIGER_PASSWORD}
+    jsonData:
+      sslmode: require
+      postgresVersion: 1700
+      timescaledb: true
+    isDefault: true
+    editable: true

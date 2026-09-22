@@ -1,0 +1,24 @@
+# Grafana, running alongside the devcontainer.
+#
+# It talks to your Tiger Cloud service over the internet -- there is no local
+# database here. Connection details come from ../.env, which scripts/grafana-env.sh
+# writes for you from the Tiger CLI so no password ever goes in a file you might
+# commit.
+services:
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../.env
+    environment:
+      # Anonymous viewer access: this is a workshop, not production. It means
+      # nobody spends the first five minutes on a login screen.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
