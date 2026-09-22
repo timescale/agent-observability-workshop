@@ -1,0 +1,41 @@
+{
+  "name": "workshop-template",
+
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  // Uncomment together with the docker-compose block below if your workshop runs
+  // a local service (a broker, Grafana, anything with a UI). Both current
+  // workshops that needed one did it this way.
+  // "features": {
+  //   "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  // },
+
+  // Uncomment alongside docker-in-docker. Label every port — attendees get a
+  // toast telling them what just came up, which saves a lot of "is it working?".
+  // "forwardPorts": [3000],
+  // "portsAttributes": {
+  //   "3000": { "label": "Grafana", "onAutoForward": "notify" }
+  // },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "eamodio.gitlens"
+        // Uncomment with docker-in-docker:
+        // , "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "workbench.secondarySideBar.defaultVisibility": "hidden"
+      }
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Uncomment if you need something to run on every container start, not just
+  // the first build — e.g. bringing up compose, or reacting to a .env the
+  // attendee creates mid-session.
+  // "postStartCommand": "docker compose -f .devcontainer/docker-compose.yml up -d",
+
+  "remoteUser": "vscode"
+}
