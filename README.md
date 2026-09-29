@@ -102,6 +102,17 @@ That 4.6 ms row is the hypertable rather than the columnstore — 29 of 30 chunk
 excluded before a single row is read. It only works because the query filters on the
 partition column, which is the whole point of choosing one.
 
+**How wrong are the approximations?** Steps 5 and 6 replace exact aggregates with
+sketches, so the number you should demand is the error. Measured on this dataset:
+
+| | approximate | exact | |
+|---|---|---|---|
+| p99 latency (`percentile_agg` + `rollup`) | 9,584 ms | 9,487 ms | 1.0% high |
+| distinct conversations (`hyperloglog`, 16,384 registers) | 20,000 | 20,001 | 0.005% low |
+
+`sql/5-rollups.sql` runs that comparison itself, so you can check it against your own
+data rather than taking our word for it.
+
 Two rows in that table are the interesting ones. **The columnstore made distinct-count
 slightly worse**, because `count(DISTINCT)` isn't waiting on disk — it's hashing 20,000
 values, and compressing the input doesn't make hashing cheaper. And cost-by-tenant barely
