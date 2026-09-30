@@ -5,7 +5,7 @@
 --   tiger db query -f sql/2-generate-data.sql
 --
 -- 300 agents, 12 tenants, 30 days. Generated server-side, so there is nothing
--- to download and nothing to upload -- it runs in well under a minute.
+-- to download and nothing to upload -- about 30 seconds on a 0.5 CPU service.
 --
 -- The shape matters more than the size. Span counts per run are lognormal:
 -- median 12, p95 ~126. And about 1 in 330 runs is a RETRY STORM -- 500 to 1500
@@ -17,8 +17,8 @@
 --
 -- ----------------------------------------------------------------------------
 -- SCALE: edit run_count below.
---   60000  -> ~2M spans. Fits a free Tiger Cloud service. Default.
---   600000 -> ~20M spans. Needs a paid service. Same queries, same plans.
+--   60000  -> ~2M spans. The default, and what every number in the README used.
+--   600000 -> ~20M spans. Wants more than 2 GB of memory. Same queries, same plans.
 -- ----------------------------------------------------------------------------
 --
 -- Safe to re-run: truncates first.

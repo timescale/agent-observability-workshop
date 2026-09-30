@@ -133,8 +133,10 @@ ORDER BY cost_usd DESC;
 -- sketch in every group: 300 agents x 12 tenants x 4 operations is ~14,400
 -- sketches per bucket, ~178,000 of them across the range.
 --
--- Measured: 5,590 ms. No better than the raw table. The data is tiny; merging
--- 178,000 probabilistic registers is what costs.
+-- Measured on 0.5 CPU / 2 GB: 512 ms, from a 44 MB rollup holding 239,060
+-- sketches. The data is tiny; merging that many probabilistic registers is what
+-- costs. (On a smaller instance this was 5,590 ms -- no better than scanning the
+-- raw table at all.)
 --
 -- The fix is not a faster sketch. It is a rollup shaped like the question.
 
@@ -207,11 +209,11 @@ ORDER BY view_name;
 -- Free Tiger Cloud service, ~2M spans. Same four questions, three times.
 --
 --                              plain    columnstore   rollup
---   Q1  p99 by agent          3234ms       1305ms      554ms
---   Q2  cost by tenant        1999ms       1897ms      303ms
---   Q4  distinct convs/day    5581ms       5724ms      1.1ms
+--   Q1  p99 by agent          1554ms        651ms      215ms
+--   Q2  cost by tenant         981ms        867ms      119ms
+--   Q4  distinct convs/day    2482ms       3040ms      1.2ms
 --
--- Accuracy: p99 sketch 3255 vs 3270 exact, 0.5% off. Conversations 20,000 vs
+-- Accuracy: p99 sketch 9584 vs 9579 exact, 0.05% off. Conversations 20,000 vs
 -- 20,001 exact, which is luck on top of a ~0.8% expected error at 16,384
 -- registers.
 --
@@ -222,8 +224,8 @@ ORDER BY view_name;
 --
 -- 2. A rollup is only fast for the question it was shaped for. spans_5m is
 --    grouped four ways because that is what the dashboard slices by, and that
---    same grouping made the conversation count 5,000x slower until we built a
---    second rollup with one column in the GROUP BY.
+--    same grouping made the conversation count 400x slower, in a rollup 70x
+--    larger, until we built a second one with a single column in the GROUP BY.
 --
 --    You do not get one magic aggregate. You get aggregates shaped like your
 --    questions -- which is fine, because they are cheap. Notice also that the

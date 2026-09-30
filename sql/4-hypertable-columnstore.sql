@@ -125,15 +125,15 @@ LIMIT 10;
 -- ============================================================================
 -- ## What actually changed -- and what didn't
 -- ============================================================================
--- Measured on a free Tiger Cloud service, ~2M spans. Yours will differ; the
--- pattern won't.
+-- Measured on 0.5 CPU / 2 GB, ~2M spans, median of three runs. Yours will
+-- differ; the pattern won't.
 --
---   storage                     320 MB -> 101 MB     3.2x smaller
---   Q1  p99 by agent            3234ms -> 1305ms     2.5x
---   Q3  tool error rates        1604ms ->  230ms     7x
---   Q2  cost by tenant          1999ms -> 1897ms     basically unchanged
---   Q4  count(DISTINCT) / day   5581ms -> 5724ms     no better. Slightly worse.
---   time-bounded, last 24h                 4.6ms     was a full scan before
+--   storage                     329 MB -> 105 MB     3.1x smaller
+--   Q3  tool error rates        733ms  ->  148ms     4.9x
+--   Q1  p99 by agent            1554ms ->  651ms     2.4x
+--   Q2  cost by tenant           981ms ->  867ms     basically unchanged
+--   Q4  count(DISTINCT) / day   2482ms -> 3040ms     no better. Worse.
+--   time-bounded, last 24h                 4.5ms     was a full scan before
 --
 -- Be suspicious of anyone who tells you a storage engine makes everything
 -- faster. Read that list again:
@@ -141,7 +141,7 @@ LIMIT 10;
 --   * The columnstore wins big when a query touches a FEW columns across MANY
 --     rows, because it only reads those columns. Q3 reads three. That's the 7x.
 --   * It does nothing for Q4, because count(DISTINCT) is not waiting on I/O --
---     it is building a hash table of 200,000 distinct values. Compressing the
+--     it is building a hash table of 20,000 distinct values. Compressing the
 --     input doesn't make hashing cheaper.
 --   * Q2 barely moves for the same reason: it scans nearly every row anyway.
 --   * The hypertable is what makes the last query 4.6ms. Twenty-nine of thirty

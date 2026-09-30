@@ -34,8 +34,9 @@ Two things, and only the first one has an unpredictable tail. Do it the day befo
 ### 1. Create a Tiger Cloud service
 
 Sign up at [tigerdata.com](https://www.tigerdata.com/) and create a service in the
-console. **The free tier is enough for this entire workshop** — the dataset lands at
-about 120 MB against a 750 MB cap.
+console. **Pick the smallest paid size — 0.5 CPU / 2 GB.** New accounts get trial credit
+that covers this many times over, and it matters: the free tier is shared CPU, which makes
+every timing in this workshop noisy and roughly doubles the waiting.
 
 ### 2. Open the Codespace
 
@@ -55,7 +56,7 @@ for a terminal that can't open your browser, which is exactly a Codespace.
 If you'd rather create the service from the terminal than the console:
 
 ```bash
-tiger service create --name agent-obs --cpu shared --memory shared
+tiger service create --name agent-obs --cpu 500 --memory 2
 ```
 
 Creating a service also makes it your **default**, which is why no command below needs a
@@ -129,11 +130,11 @@ server-side — nothing to download, nothing to upload.
 **Why.** One run teaches you the shape. The questions that matter only get hard at
 volume, and you can't feel that with nine rows.
 
-**What you should see.** About **85 seconds**, then:
+**What you should see.** About **30 seconds**, then:
 
 ```
  spans   │ runs  │ agents │ tenants │ spans_per_day │ error_pct │ total_cost_usd
- 2003180 │ 60000 │ 300    │ 12      │ 66773         │ 8.57      │ 4660.99
+ 2013057 │ 60000 │ 300    │ 12      │ 67102         │ 8.43      │ 4733.42
 ```
 
 **The point.** The distribution matters more than the row count. Runs are lognormal —
@@ -142,7 +143,7 @@ spans, mostly failing, because a provider had a bad minute and the framework kep
 retrying. That isn't a synthetic flourish; there's a documented case of 847 spans in one
 conversation during an outage.
 
-Hold that 8.57% error rate in your head. It's about to turn out to be misleading.
+Hold that 8.43% error rate in your head. It's about to turn out to be misleading.
 
 ---
 
@@ -162,25 +163,26 @@ that it is.
 
 | | |
 |---|---|
-| Which agents are slow? (p99 latency) | **3,234 ms** |
-| What is each customer costing us? | **1,999 ms** |
-| Which tools fail? | **1,604 ms** |
-| Distinct conversations per day | **5,581 ms** |
+| Which agents are slow? (p99 latency) | **1,554 ms** |
+| What is each customer costing us? | **981 ms** |
+| Which tools fail? | **733 ms** |
+| Distinct conversations per day | **2,482 ms** |
 
 Then the query at the bottom of the file, which is the one that matters:
 
 ```
- bucket          │ runs  │ avg_spans │ avg_error_pct
- normal          │ 59060 │ 28        │ 1.5
- over 40x median │   940 │ 344       │ 13.1
+ bucket          │ runs  │ avg_spans │ avg_error_pct │ total_cost_usd │ pct_of_spend
+ normal          │ 58993 │ 28        │ 1.5           │ 3204.91        │ 67.7
+ over 40x median │  1007 │ 350       │ 12.5          │ 1528.50        │ 32.3
 ```
 
 (Your exact figures will differ — the data is randomly generated. The shape won't.)
 
-**The point.** That 8.57% org-wide error rate told you nothing useful — it couldn't
+**The point.** That 8.43% org-wide error rate told you nothing useful — it couldn't
 distinguish "everything is slightly broken" from "a few things are very broken." Split
 runs by cost and it resolves immediately: normal runs are 28 spans and fail 1.5% of the
-time, while **940 runs out of 60,000 average 344 spans and fail 13% of the time.**
+time, while **1,007 runs out of 60,000 average 350 spans, fail 12.5% of the time, and
+take a third of total spend.**
 
 An average would have hidden this completely. Remember that in step 5, where we have to
 pre-aggregate these numbers without destroying the tail.
@@ -200,32 +202,32 @@ chunk column-by-column, compressed, so analytical queries read less.
 **Why.** Because they help different queries, and knowing which is which is the actual
 skill.
 
-**What you should see.** A couple of minutes of work, 31 chunks, and:
+**What you should see.** About 40 seconds of work, 31 chunks, and:
 
 ```
- rowstore_size:     320 MB
- columnstore_size:  102 MB
+ rowstore_size:     329 MB
+ columnstore_size:  105 MB
 ```
 
 Then the same queries re-run:
 
 | | plain | columnstore | |
 |---|---|---|---|
-| Which tools fail? | 1,604 ms | **230 ms** | 7× |
-| p99 latency by agent | 3,234 ms | 1,305 ms | 2.5× |
-| Cost by tenant | 1,999 ms | 1,897 ms | *~nothing* |
-| Distinct conversations/day | 5,581 ms | **5,724 ms** | *worse* |
-| Last 24 hours, time-filtered | full scan | **4.6 ms** | chunk exclusion |
+| Which tools fail? | 733 ms | **148 ms** | 4.9× |
+| p99 latency by agent | 1,554 ms | 651 ms | 2.4× |
+| Cost by tenant | 981 ms | 867 ms | *~nothing* |
+| Distinct conversations/day | 2,482 ms | **3,040 ms** | *worse* |
+| Last 24 hours, time-filtered | full scan | **4.5 ms** | chunk exclusion |
 
 **The point.** Be suspicious of anyone who tells you a storage engine makes everything
 faster. Two of four queries barely moved, and one got *worse*.
 
 The columnstore wins when a query touches a few columns across many rows — "which tools
-fail" reads three columns, hence 7×. It does nothing for `count(DISTINCT)`, because that
+fail" reads three columns, hence 4.9×. It does nothing for `count(DISTINCT)`, because that
 query isn't waiting on disk, it's building a hash table of 20,000 values; compressing the
 input doesn't make hashing cheaper. Cost-by-tenant scans nearly every row anyway.
 
-The 4.6 ms row is the **hypertable**, not the columnstore — 29 of 30 chunks excluded
+The 4.5 ms row is the **hypertable**, not the columnstore — 29 of 30 chunks excluded
 before reading a single row. That only works because the query filters on the partition
 column, which is the whole reason you choose one.
 
@@ -251,15 +253,15 @@ ask. Stop doing that.
 
 | | plain | columnstore | rollup |
 |---|---|---|---|
-| p99 latency by agent | 3,234 ms | 1,305 ms | **660 ms** |
-| Cost by tenant | 1,999 ms | 1,897 ms | **605 ms** |
-| Distinct conversations/day | 5,581 ms | 5,724 ms | **1.1 ms** |
+| p99 latency by agent | 1,554 ms | 651 ms | **215 ms** |
+| Cost by tenant | 981 ms | 867 ms | **119 ms** |
+| Distinct conversations/day | 2,482 ms | 3,040 ms | **1.2 ms** |
 
 And the accuracy comparison the file runs for you:
 
 | | approximate | exact | |
 |---|---|---|---|
-| p99 latency | 9,584 ms | 9,487 ms | 1.0% high |
+| p99 latency | 9,584 ms | 9,579 ms | 0.05% high |
 | distinct conversations | 20,000 | 20,001 | 0.005% low |
 
 **The point — two of them, and the second is the one people miss.**
@@ -272,9 +274,13 @@ the distribution — and `rollup()` merges sketches, so a 30-day p99 computed fr
 **A rollup is only fast for the question it was shaped for.** Our first attempt put
 hyperloglog in the 5-minute rollup alongside the latency sketch, grouped by agent ×
 tenant × operation — which is what the dashboard slices by. Asking it for distinct
-conversations per day then meant merging **178,000 sketches: 5,590 ms**, no better than
-the raw table. A second rollup grouped only by day: **1.1 ms, and 440 kB instead of
-65 MB.**
+conversations per day then meant merging **239,060 sketches: 512 ms, out of a 44 MB
+rollup.** A second rollup grouped only by day holds **31 sketches, answers in 1.2 ms, and
+occupies 632 kB** — 400× faster and 70× smaller, for the same number.
+
+Worth knowing how much the instance matters: on shared CPU that same wrong-shaped rollup
+took **5,590 ms** — no better than scanning the raw table at all. Better hardware hid the
+mistake rather than fixing it.
 
 You don't get one magic aggregate. You get several, shaped like your questions, and
 they're cheap. Note also that the three `spans_*` rollups together are larger than the
@@ -299,10 +305,10 @@ and that's exactly the question a trace vendor can't answer once its window clos
 
 ```
                  before          after
- raw spans       1,989,321   →   516,693
+ raw spans       2,013,057   →   494,988
  raw size        102 MB      →   26 MB
- raw oldest      2026-08-23  →   2026-09-15
- daily rollup    unchanged, still back to 2026-08-23
+ raw oldest      2026-08-31  →   2026-09-23
+ daily rollup    178,052 rows, still back to 2026-08-31
 ```
 
 Then the 30-day cost, p99 and conversation-count queries **still answering** — from data
@@ -343,20 +349,19 @@ worth paying a full scan for, and it's where the 940 runs from step 3 show up by
 
 ## Scoreboard
 
-Measured on a **free** Tiger Cloud service with 2,003,180 spans. A free service is shared
-CPU, so your numbers will move around — compare the *ratios* between columns, not the
-milliseconds.
+Measured on **0.5 CPU / 2 GB** with 2,013,057 spans, median of three runs. Compare the
+*ratios* between columns rather than the milliseconds — your numbers will differ.
 
 | | plain | columnstore | rollup |
 |---|---|---|---|
-| p99 latency by agent | 3,234 ms | 1,305 ms | **660 ms** |
-| Cost by tenant | 1,999 ms | 1,897 ms | **605 ms** |
-| Tool error rates | 1,604 ms | **230 ms** | — |
-| Distinct conversations/day | 5,581 ms | 5,724 ms | **1.1 ms** |
-| Last 24 hours, time-filtered | full scan | **4.6 ms** | — |
-| Table size | 320 MB | **102 MB** | 26 MB after retention |
+| p99 latency by agent | 1,554 ms | 651 ms | **215 ms** |
+| Cost by tenant | 981 ms | 867 ms | **119 ms** |
+| Tool error rates | 733 ms | **148 ms** | — |
+| Distinct conversations/day | 2,482 ms | 3,040 ms | **1.2 ms** |
+| Last 24 hours, time-filtered | full scan | **4.5 ms** | — |
+| Table size | 329 MB | **105 MB** | 26 MB after retention |
 
-Data generation: ~85 seconds. Peak storage: ~120 MB against a 750 MB free-tier cap.
+Step timings: generation ~30 s, columnstore conversion ~40 s, rollups ~40 s.
 
 ## Need help?
 
@@ -392,26 +397,26 @@ waits for the daemon to avoid this, but a slow start can still outrun it.
 **Grafana says `database "tsdbadmin" does not exist`**
 `.env` has an empty `TIGER_DATABASE`. Re-run `scripts/grafana-env.sh`.
 
-**`conn closed` on a big query**
-A free service is shared CPU and modest memory. `CREATE TABLE AS SELECT` over two million
-rows will drop the connection. Nothing in the workshop does this, but it's worth knowing
-where the ceiling is. `tiger db query --timeout 0` helps for merely-slow queries; it does
-not help for this.
+**A long query drops with `conn closed`**
+Use `tiger db query --timeout 0` for the slow ones. On small instances, very heavy
+operations — `CREATE TABLE AS SELECT` over two million rows, say — can drop the connection
+regardless. Nothing in the workshop does that, but it's where the ceiling is.
 
 **The service went read-only**
-You hit the 750 MB free-tier cap. The default dataset peaks around 120 MB, so this
-normally means the generator was run repeatedly without the `TRUNCATE` at the top, or the
-run count was raised. Check with `tiger service list`.
+You ran out of storage. The default dataset needs about 350 MB before the columnstore
+converts it; if you raised `run_count` in `sql/2-generate-data.sql`, raise the instance
+size too. Check with `tiger service list`.
 
 **Numbers don't match the table above**
-Expected. Shared CPU, and your data is randomly generated. Compare the *ratios* between
-columns, not the absolute milliseconds.
+Expected — your data is randomly generated, and instance size moves everything. Compare
+the *ratios* between columns, not the absolute milliseconds. On the free tier instead of
+0.5 CPU / 2 GB, expect roughly double across the board.
 
 ## After the workshop
 
 - **Turn up the scale.** `sql/2-generate-data.sql` has a `run_count` at the top. 600,000
-  gives you ~20M spans — you'll want a paid service, and every query and plan stays the
-  same shape.
+  gives you ~20M spans — you'll want more than 2 GB of memory, and every query and plan
+  stays the same shape.
 - **Point it at real telemetry.** The column names track the OpenTelemetry GenAI semantic
   conventions (`gen_ai.operation.name`, `gen_ai.usage.input_tokens`, `gen_ai.agent.name`),
   so an OTel collector can write into this schema with a mapping rather than a redesign.

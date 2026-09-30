@@ -36,13 +36,17 @@ you know what it's doing and what it can't do for you.*
 
 ## Keep the numbers honest
 
-Every figure in the README was measured on a free Tiger Cloud service with 2,003,180
-spans, and several of them contradict what you'd assume:
+Every figure in the README was measured on **0.5 CPU / 2 GB** with 2,013,057 spans,
+median of three runs, and several contradict what you'd assume:
 
-- the columnstore made `count(DISTINCT)` *slightly worse*
+- the columnstore made `count(DISTINCT)` *worse* (2,482ms -> 3,040ms)
 - cost-by-tenant barely moved under the columnstore
-- hyperloglog in the wrong-shaped rollup was 5,590ms; in a rollup grouped only by day it
-  was 1.1ms and 440 kB instead of 65 MB
+- hyperloglog in the wrong-shaped rollup was 512ms from a 44 MB view; grouped only by
+  day it was 1.2ms from 632 kB
+
+Instance size moves these a lot. On shared CPU the wrong-shaped rollup took 5,590ms --
+no better than the raw table -- so the *lesson* survived but the *number* didn't. If you
+change the instance size, re-measure; don't scale the old numbers in your head.
 
 If you change the generator, re-measure and update the table. A wrong number is worse than
 no number: it turns "this is slow" into "this is broken" and people kill the command.

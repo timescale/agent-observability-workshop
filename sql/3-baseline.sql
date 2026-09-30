@@ -68,7 +68,7 @@ LIMIT 7;
 -- ============================================================================
 -- ## The one that matters: find the runs that are eating the money
 -- ============================================================================
--- Org-wide error rate is ~8%. That number is useless on its own -- it doesn't
+-- Org-wide error rate is ~8.4%. That number is useless on its own -- it doesn't
 -- tell you whether everything is slightly broken or a few things are very
 -- broken. So ask a better question: which runs cost far more than a typical
 -- run, and what do they have in common?
@@ -98,10 +98,11 @@ ORDER BY total_cost_usd DESC;
 -- Look at that split before moving on.
 --
 -- A normal run is ~28 spans and fails 1.5% of the time. The expensive bucket
--- averages ~344 spans and fails ~13% of the time. Those are retry storms: a
+-- averages ~350 spans and fails ~12.5% of the time -- about 1,000 runs out of
+-- 60,000, taking roughly a third of total spend. Those are retry storms: a
 -- provider had a bad minute, the framework retried, and the bill went with it.
 --
--- Your 8% org-wide error rate is not "everything is slightly broken".
+-- Your 8.4% org-wide error rate is not "everything is slightly broken".
 -- It is a couple of hundred runs out of sixty thousand.
 --
 -- An average would have hidden this completely. Keep that in mind in step 5,

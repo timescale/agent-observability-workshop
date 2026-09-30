@@ -143,18 +143,17 @@ tables. Nobody runs recursive CTEs on the hot path.
 
 Generated server-side. Nothing to download.
 
-> **Notes:** **→ Terminal: `sql/2-generate-data.sql`. This takes ~85 seconds — you need
-> to talk through it.**
+> **Notes:** **→ Terminal: `sql/2-generate-data.sql`. About 30 seconds on 0.5 CPU — one
+> talking point, not three.**
 >
 > Fill the time with the distribution, because it's the most important design decision
 > in the dataset:
-> - median run is 12 spans, p95 is ~126
-> - about 1 in 330 runs is a *retry storm*: 500–1500 spans, mostly failing
-> - that's not invented — there's a documented case of 847 spans in one conversation
->   during a provider outage, because the framework kept retrying
+> Lead with the distribution, because it's the most important design decision in the
+> dataset: median run is 12 spans, p95 is ~126, and about 1 in 330 is a *retry storm*
+> at 500–1500 spans, mostly failing. Not invented — a documented case hit 847 spans in
+> one conversation during a provider outage.
 >
-> If it finishes early, show `sql/2-generate-data.sql` and point at the lognormal.
-> If it runs long, keep going — the tail is genuinely the interesting part.
+> If it finishes before you're done, that's fine — finish the thought, then move.
 
 ---
 
@@ -168,11 +167,11 @@ Generated server-side. Nothing to download.
 Nothing exotic. Every team asks these.
 
 > **Notes:** **→ Terminal: `sql/3-baseline.sql`.** Let the timings land:
-> 3.2s / 2.0s / 1.6s / 5.6s. Four sequential scans.
+> 1.55s / 0.98s / 0.73s / 2.48s. Four sequential scans.
 >
-> Then the money query at the bottom. Org-wide error rate is 8%. Useless number. Split
-> runs by cost and it resolves: normal runs 28 spans and 1.5% errors, expensive runs 344
-> spans and 13% errors. **Your 8% is a couple hundred runs out of sixty thousand.**
+> Then the money query at the bottom. Org-wide error rate is 8.4%. Useless number. Split
+> runs by cost and it resolves: normal runs 28 spans and 1.5% errors, expensive runs 350
+> spans and 12.5% errors. **1,007 runs out of 60,000 — and a third of the spend.**
 >
 > This is the emotional peak of the first half. Slow down here.
 
@@ -187,8 +186,7 @@ touch *few columns across many rows*.
 
 They are not the same thing and they do not help the same queries.
 
-> **Notes:** **→ Terminal: `sql/4-hypertable-columnstore.sql`. The conversion takes
-> ~2 minutes — more dead air.**
+> **Notes:** **→ Terminal: `sql/4-hypertable-columnstore.sql`. About 40 seconds.**
 >
 > Talk through the segmentby choice: `agent_name, operation` because they're low
 > cardinality and they're what we filter and group by. Rows sharing a segmentby value
@@ -204,12 +202,12 @@ They are not the same thing and they do not help the same queries.
 
 |  | plain | columnstore |
 |---|---|---|
-| storage | 320 MB | **102 MB** |
-| tool error rates | 1,604 ms | **230 ms** |
-| p99 by agent | 3,234 ms | 1,305 ms |
-| cost by tenant | 1,999 ms | 1,897 ms |
-| distinct conversations | 5,581 ms | **5,724 ms** ← worse |
-| last 24h, time-filtered | full scan | **4.6 ms** |
+| storage | 329 MB | **105 MB** |
+| tool error rates | 733 ms | **148 ms** |
+| p99 by agent | 1,554 ms | 651 ms |
+| cost by tenant | 981 ms | 867 ms |
+| distinct conversations | 2,482 ms | **3,040 ms** ← worse |
+| last 24h, time-filtered | full scan | **4.5 ms** |
 
 > **Notes:** Be loud about the row that got worse. This is the most trust-building
 > moment in the talk — everyone has sat through a vendor demo where every number
@@ -219,7 +217,7 @@ They are not the same thing and they do not help the same queries.
 > the input doesn't make hashing cheaper. And cost-by-tenant scans nearly every row
 > anyway.
 >
-> The 4.6 ms line is the hypertable, not the columnstore — 29 of 30 chunks excluded
+> The 4.5 ms line is the hypertable, not the columnstore — 29 of 30 chunks excluded
 > before reading anything. Only works because the query filters on the partition column.
 
 ---
@@ -255,11 +253,13 @@ approx_percentile(0.99, rollup(latency))          -- reading it back
 
 First attempt: hyperloglog in the 5-minute rollup, grouped by agent × tenant × operation.
 
-→ 178,000 sketches to merge. **5,590 ms.** No better than the raw table.
+→ 239,060 sketches to merge. **512 ms**, from a **44 MB** rollup.
 
 Second attempt: one rollup, grouped only by day.
 
-→ **1.1 ms. 440 kB instead of 65 MB.**
+→ 31 sketches. **1.2 ms. 632 kB.**
+
+400× faster, 70× smaller, same number.
 
 > **Notes:** Tell this as a mistake, because it was one. It's more useful than any
 > feature on its own.
@@ -275,11 +275,11 @@ Second attempt: one rollup, grouped only by day.
 
 |  | plain | columnstore | rollup |
 |---|---|---|---|
-| p99 by agent | 3,234 ms | 1,305 ms | **660 ms** |
-| cost by tenant | 1,999 ms | 1,897 ms | **605 ms** |
-| distinct conversations | 5,581 ms | 5,724 ms | **1.1 ms** |
+| p99 by agent | 1,554 ms | 651 ms | **215 ms** |
+| cost by tenant | 981 ms | 867 ms | **119 ms** |
+| distinct conversations | 2,482 ms | 3,040 ms | **1.2 ms** |
 
-Accuracy: p99 sketch 9,584 vs 9,487 exact. Conversations 20,000 vs 20,001.
+Accuracy: p99 sketch 9,584 vs 9,579 exact. Conversations 20,000 vs 20,001.
 
 > **Notes:** Say the accuracy numbers out loud. Anything labelled "approx" deserves the
 > question "how wrong?", and having the answer ready is the difference between a demo and
@@ -309,8 +309,8 @@ Nobody debugs a specific agent run from six weeks ago.
 Everybody asks what agents cost per customer last quarter.
 
 ```
-raw spans     1,989,321 → 516,693      102 MB → 26 MB      keep 7 days
-daily rollup  unchanged, back to day 1                     keep for years
+raw spans     2,013,057 → 494,988      102 MB → 26 MB      keep 7 days
+daily rollup  178,052 rows, back to day 1                  keep for years
 ```
 
 > **Notes:** **→ Terminal: `sql/6-retention.sql`.** Then re-run the 30-day cost and p99
@@ -333,8 +333,9 @@ daily rollup  unchanged, back to day 1                     keep for years
 
 **github.com/timescale/agent-observability-workshop**
 
-> **Notes:** The repo runs free end to end — the dataset is ~120 MB against a 750 MB free
-> tier. Say that explicitly; it removes the last excuse not to try it.
+> **Notes:** Trial credit covers the whole thing — it wants the smallest paid size,
+> 0.5 CPU / 2 GB, and costs pennies for an afternoon. Say that explicitly; it removes
+> the last excuse not to try it.
 
 ---
 
@@ -359,4 +360,6 @@ daily rollup  unchanged, back to day 1                     keep for years
 > an OTel collector with a Postgres exporter, or a batched writer in your agent
 > framework. Batch it — row-at-a-time inserts will not keep up.
 >
-> *"Free tier really?"* — Yes, ~120 MB of 750 MB. Shared CPU, so timings vary.
+> *"What does it cost to try?"* — Smallest paid size, 0.5 CPU / 2 GB, well inside new-
+> account trial credit. It runs on the free tier too, but shared CPU roughly doubles
+> every timing.

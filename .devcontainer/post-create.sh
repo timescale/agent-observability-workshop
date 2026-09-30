@@ -48,7 +48,7 @@ cat <<'BANNER'
 
    Next, from this terminal:
        tiger auth login --headless
-       tiger service create --name agent-obs --cpu shared --memory shared
+       tiger service create --name agent-obs --cpu 500 --memory 2
        scripts/grafana-env.sh agent-obs
 
    Then work through sql/1 .. sql/6. Creating a service also makes it
