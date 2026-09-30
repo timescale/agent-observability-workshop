@@ -3,9 +3,13 @@
 Source for the deck, plus what to say. Slides are separated by `---`; the **Notes**
 under each are speaker notes, not slide content.
 
-Built for **60 minutes**: ~45 walkthrough, ~15 Q&A. Timings in the headers are cumulative.
-If you're running long, cut Act V (retention) — it's the most self-explanatory in the
-replay.
+Built for **60 minutes**: 50 walkthrough, 10 Q&A. Timings in the headers are cumulative
+and assume a 0.5 CPU / 2 GB service — generation ~30s, columnstore ~40s, rollups ~40s. On
+the free tier everything roughly doubles and you will not fit in an hour.
+
+The generous slots are slide 9 (the money query) and slide 12 (percentile sketches),
+because those are the two ideas worth the time. If you're running long, cut slide 16
+(retention) — it's the most self-explanatory in the replay.
 
 Terminal is on screen for most of this. Slides carry the things a terminal can't show.
 
@@ -137,7 +141,7 @@ tables. Nobody runs recursive CTEs on the hot path.
 
 ---
 
-## Slide 8 — Now make it an org  ·  0:14
+## Slide 8 — Now make it an org  ·  0:13
 
 300 agents · 12 tenants · 30 days · ~2 million spans
 
@@ -157,7 +161,7 @@ Generated server-side. Nothing to download.
 
 ---
 
-## Slide 9 — Four questions  ·  0:16
+## Slide 9 — Four questions  ·  0:15
 
 1. Which agents are slow? (p99 latency)
 2. What is each customer costing us?
@@ -198,7 +202,7 @@ They are not the same thing and they do not help the same queries.
 
 ---
 
-## Slide 11 — Two out of four  ·  0:26
+## Slide 11 — Two out of four  ·  0:24
 
 |  | plain | columnstore |
 |---|---|---|
@@ -222,7 +226,7 @@ They are not the same thing and they do not help the same queries.
 
 ---
 
-## Slide 12 — You cannot average a p99  ·  0:30
+## Slide 12 — You cannot average a p99  ·  0:28
 
 ```
    bucket 1: p99 = 900ms          avg(900, 400) = 650ms
@@ -249,7 +253,7 @@ approx_percentile(0.99, rollup(latency))          -- reading it back
 
 ---
 
-## Slide 13 — Rollups are shaped like questions  ·  0:36
+## Slide 13 — Rollups are shaped like questions  ·  0:34
 
 First attempt: hyperloglog in the 5-minute rollup, grouped by agent × tenant × operation.
 
@@ -271,7 +275,7 @@ Second attempt: one rollup, grouped only by day.
 
 ---
 
-## Slide 14 — The scoreboard  ·  0:40
+## Slide 14 — The scoreboard  ·  0:38
 
 |  | plain | columnstore | rollup |
 |---|---|---|---|
@@ -287,12 +291,21 @@ Accuracy: p99 sketch 9,584 vs 9,579 exact. Conversations 20,000 vs 20,001.
 
 ---
 
-## Slide 15 — Live  ·  0:42
+## Slide 15 — Live  ·  0:40
 
 *(Grafana on screen)*
 
-> **Notes:** **→ Demo.** Every panel but one reads a continuous aggregate, which is why
-> it's responsive on the smallest service Tiger Cloud sells.
+> **Notes:** **→ Demo.**
+>
+> **Check before you go live:** the Ports tab should show 3000. If it doesn't, the
+> docker-in-docker daemon outran the startup script — run
+> `docker compose -f .devcontainer/docker-compose.yml up -d` and it appears in seconds.
+> Worth doing during slide 1 rather than discovering it here.
+>
+> Then `scripts/grafana-env.sh agent-obs` to point it at your service.
+>
+> Every panel but one reads a continuous aggregate, which is why it's responsive on the
+> smallest service Tiger Cloud sells.
 >
 > The exception is the retry-storm table — it scans raw spans on purpose. That's the one
 > question worth paying a full scan for.
@@ -302,7 +315,7 @@ Accuracy: p99 sketch 9,584 vs 9,579 exact. Conversations 20,000 vs 20,001.
 
 ---
 
-## Slide 16 — Throw the raw data away  ·  0:48
+## Slide 16 — Throw the raw data away  ·  0:44
 
 Nobody debugs a specific agent run from six weeks ago.
 
@@ -322,7 +335,7 @@ daily rollup  178,052 rows, back to day 1                  keep for years
 
 ---
 
-## Slide 17 — What to take away  ·  0:52
+## Slide 17 — What to take away  ·  0:48
 
 - Agent telemetry is time-series, not logs. Model it that way.
 - Match the OTel GenAI conventions so you're not inventing a schema.
@@ -339,7 +352,7 @@ daily rollup  178,052 rows, back to day 1                  keep for years
 
 ---
 
-## Slide 18 — Q&A  ·  0:55
+## Slide 18 — Q&A  ·  0:50
 
 **github.com/timescale/agent-observability-workshop**
 
