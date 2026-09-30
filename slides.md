@@ -248,8 +248,8 @@ approx_percentile(0.99, rollup(latency))          -- reading it back
 >
 > Same trick for distinct counts: hyperloglog instead of a hash set.
 >
-> **→ Terminal: `sql/5-rollups.sql`. Run it section by section with `-c` — cagg refreshes
-> can't run inside the transaction `-f` uses.**
+> **→ Terminal: three commands — `-f sql/5a-create-rollups.sql`, then
+> `scripts/refresh-rollups.sh` (~35s, talk over it), then `-f sql/5b-query-rollups.sql`.**
 
 ---
 

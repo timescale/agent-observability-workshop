@@ -29,7 +29,10 @@ you know what it's doing and what it can't do for you.*
 - `ALTER TABLE ... SET (timescaledb.compress ...)` was deprecated in 2.18. Use
   `timescaledb.enable_columnstore` and the hypercore functions.
 - Continuous aggregate refreshes can't run in the transaction `tiger db query -f` wraps a
-  file in (SQLSTATE 25001). `sql/5-rollups.sql` says so at the top.
+  file in (SQLSTATE 25001). That's why step 5 is split into 5a (create empty), a shell
+  script (refresh, one transaction each) and 5b (query). Keep `CALL
+  refresh_continuous_aggregate` and `CREATE MATERIALIZED VIEW ... WITH DATA` out of any
+  file meant for `-f`.
 - `::int` **rounds** in Postgres, so `(random() * 9.999)::int` can return 10 and index
   past the end of a 10-element array, silently producing NULL. Use `floor()`.
 - `CREATE TABLE AS SELECT` over 2M rows kills the connection on a free service.

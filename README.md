@@ -73,9 +73,9 @@ tiger db query -f sql/1-schema.sql
 
 No service ID needed: creating a service made it your default.
 
-> **One exception.** `sql/5-rollups.sql` must be run section by section with `-c`, not
-> with `-f`. Continuous aggregate refreshes cannot run inside the transaction that `-f`
-> wraps a file in. There's a note at the top of that file.
+Step 5 is three commands rather than one, because `refresh_continuous_aggregate()`
+cannot run inside a transaction and `-f` wraps a file in one. Everything still runs with
+plain `-f`; nothing needs pasting section by section.
 
 ---
 
@@ -238,12 +238,18 @@ Two out of four. Step 5 fixes the rest, and neither fix is a storage trick.
 ### Step 5 — Stop doing the work twice
 
 ```bash
-# section by section with -c, NOT -f (see the note at the top of the file)
+tiger db query -f sql/5a-create-rollups.sql
+scripts/refresh-rollups.sh
+tiger db query -f sql/5b-query-rollups.sql
 ```
 
 **What this is.** Continuous aggregates: 5-minute rollups, then hourly built on those,
-then daily built on those. Plus two things that aren't ordinary SQL — percentile sketches
-and hyperloglog.
+then daily built on those, plus a fourth grouped only by day. And two things that aren't
+ordinary SQL — percentile sketches and hyperloglog.
+
+Three commands, because `refresh_continuous_aggregate()` can't run inside a transaction
+and `-f` wraps a file in one. `5a` creates the rollups empty, the script fills them one
+transaction at a time (~35 seconds), `5b` asks the questions.
 
 **Why.** Cost-by-tenant and distinct-conversations didn't improve in step 4 because
 neither is a storage problem. Both recompute yesterday's answer every single time you
@@ -377,9 +383,11 @@ need `CALL`, and fail inside a `SELECT`. The workshop files already do this corr
 you're adapting them, watch for it.
 
 **`cannot run inside a transaction block (SQLSTATE 25001)`**
-You ran `sql/5-rollups.sql` with `-f`. `tiger db query -f` wraps a file in one
-transaction, and continuous aggregate refreshes need their own. Run the sections with
-`-c`.
+Something needing its own transaction ended up in a multi-statement file.
+`tiger db query -f` wraps a whole file in one, and both
+`refresh_continuous_aggregate()` and `CREATE MATERIALIZED VIEW ... WITH DATA` refuse to
+run inside it. That's why step 5 is split the way it is — if you adapt these files, keep
+those calls out of anything you intend to run with `-f`.
 
 **No port 3000 in the Ports tab / Grafana isn't there**
 Grafana runs as a sibling container, and `postStartCommand` can fire before the Docker
