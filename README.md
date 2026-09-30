@@ -178,6 +178,19 @@ You ran `sql/5-rollups.sql` with `-f`. `tiger db query -f` wraps a file in one
 transaction, and continuous aggregate refreshes need their own. Run the sections with
 `-c`.
 
+**No port 3000 in the Ports tab / Grafana isn't there**
+Grafana runs as a sibling container, and `postStartCommand` can fire before the Docker
+daemon inside the Codespace is accepting connections — in which case nothing ever binds
+3000 and there is no obvious error. Bring it up by hand:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml up -d
+```
+
+Then check `docker ps` shows `grafana`, and `curl -sf localhost:3000/api/health`. The
+port should appear in the Ports tab within a few seconds. `.devcontainer/post-start.sh`
+waits for the daemon to avoid this, but a slow start can still outrun it.
+
 **Grafana says `database "tsdbadmin" does not exist`**
 `.env` has an empty `TIGER_DATABASE`. Re-run `scripts/grafana-env.sh`.
 
