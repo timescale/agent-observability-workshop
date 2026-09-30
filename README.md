@@ -33,7 +33,7 @@ Two things, and only the first one has an unpredictable tail. Do it the day befo
 
 ### 1. Create a Tiger Cloud service
 
-Sign up at [tigerdata.com](https://www.tigerdata.com/) and create a service in the
+Sign up at [tsdb.co/38kyptjp](https://tsdb.co/38kyptjp) and create a service in the
 console. **Pick the smallest paid size — 0.5 CPU / 2 GB.** New accounts get trial credit
 that covers this many times over, and it matters: the free tier is shared CPU, which makes
 every timing in this workshop noisy and roughly doubles the waiting.
